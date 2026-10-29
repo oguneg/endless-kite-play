@@ -1,0 +1,99 @@
+/* Endless Kite's page: the game fills the window; while it loads, the title and a saffron strap on
+   dyed leather, in the game's own colours (DESIGN.md). Faculty Glyphic is SIL OFL (licence beside it). */
+
+@font-face {
+  font-family: "Faculty Glyphic";
+  src: url("FacultyGlyphic-Regular.ttf") format("truetype");
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #1b1c26;
+  color: #ebe0c4;
+}
+
+#unity-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+  background: #1b1c26;
+  outline: none;
+}
+
+#loading {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  font-family: "Faculty Glyphic", Georgia, serif;
+}
+
+#loading .title {
+  font-size: clamp(40px, 7vw, 76px);
+  letter-spacing: 0.01em;
+}
+
+/* a strap the dye runs along, stitched inside its edge */
+.strap {
+  width: min(420px, 70vw);
+  height: 22px;
+  background: #0c0d12;
+  border-radius: 3px;
+  outline: 1.5px dashed rgba(235, 224, 196, 0.34);
+  outline-offset: 5px;
+  overflow: hidden;
+}
+
+#fill {
+  width: 100%;
+  height: 100%;
+  background: #d0942c;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.2s ease-out;
+}
+
+#status {
+  font-family: "Barlow Semi Condensed", "Segoe UI", sans-serif;
+  font-size: 16px;
+  color: #b3a88c;
+  font-variant-numeric: tabular-nums;
+}
+
+#notice {
+  position: fixed;
+  left: 50%;
+  top: 16px;
+  transform: translateX(-50%);
+  font-family: "Segoe UI", sans-serif;
+  font-size: 15px;
+  max-width: 80vw;
+}
+
+#notice div {
+  margin-bottom: 8px;
+  padding: 8px 14px;
+  border-radius: 3px;
+  background: #252736;
+  color: #ebe0c4;
+  border: 1px solid rgba(235, 224, 196, 0.32);
+}
+
+#notice .error {
+  background: #a32b22;
+  border-color: #c63c2d;
+}
+
+::selection {
+  background: #d0942c;
+  color: #2b1b05;
+}

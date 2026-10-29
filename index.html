@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, user-scalable=no">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Endless Kite</title>
+    <link rel="stylesheet" href="TemplateData/style.css">
+    <style>
+      /* the gate: a leather patch with a name, a password and a saffron button (seal.mjs) */
+      @font-face { font-family: "Barlow Semi Condensed"; font-weight: 500; src: url("TemplateData/BarlowSemiCondensed-Medium.ttf") format("truetype"); }
+      @font-face { font-family: "Barlow Semi Condensed"; font-weight: 600; src: url("TemplateData/BarlowSemiCondensed-SemiBold.ttf") format("truetype"); }
+
+      #gate {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 26px;
+        padding: 16px;
+        box-sizing: border-box;
+      }
+      #gate .title {
+        font-family: "Faculty Glyphic", Georgia, serif;
+        font-size: clamp(40px, 7vw, 76px);
+        letter-spacing: 0.01em;
+      }
+      .patch {
+        position: relative;
+        width: min(340px, 100%);
+        box-sizing: border-box;
+        padding: 26px 28px 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        background: #252736;
+        border: 1px solid rgba(0, 0, 0, 0.6);
+        border-bottom: 3px solid #0c0d12;
+        border-radius: 3px;
+        font-family: "Barlow Semi Condensed", "Segoe UI", sans-serif;
+        font-weight: 500;
+      }
+      /* the thread, sewn just inside the edge */
+      .patch::before {
+        content: "";
+        position: absolute;
+        inset: 6px;
+        border: 2px dotted rgba(210, 192, 152, 0.75);
+        border-radius: 3px;
+        pointer-events: none;
+      }
+      .patch label {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 16px;
+        color: #b3a88c;
+      }
+      .patch input {
+        font: 500 19px "Barlow Semi Condensed", "Segoe UI", sans-serif;
+        color: #ebe0c4;
+        background: #0c0d12;
+        border: 1px solid rgba(235, 224, 196, 0.22);
+        border-radius: 2px;
+        padding: 8px 10px;
+        caret-color: #d0942c;
+        outline: none;
+      }
+      .patch input:focus { border-color: #ebe0c4; }
+      .patch button {
+        margin-top: 6px;
+        font: 600 19px "Barlow Semi Condensed", "Segoe UI", sans-serif;
+        color: #2b1b05;
+        background: #d0942c;
+        border: 1px solid #f1c36d;
+        border-bottom: 3px solid #7c5412;
+        border-radius: 3px;
+        padding: 8px 0 6px;
+        cursor: pointer;
+        transition: background-color 0.08s, transform 0.08s;
+      }
+      .patch button:hover { background: #e6ab45; }
+      .patch button:focus-visible { outline: 2px solid #fff3d6; outline-offset: 2px; }
+      .patch button:active { transform: translateY(2px); }
+      .patch button:disabled { background: #3d3220; color: rgba(235, 224, 196, 0.5); border-color: rgba(208, 148, 44, 0.28); cursor: default; }
+      #why { min-height: 20px; font-size: 16px; color: #e2715f; }
+      #loading { display: none; }
+    </style>
+  </head>
+  <body>
+    <canvas id="unity-canvas" tabindex="-1"></canvas>
+    <form id="gate" autocomplete="on">
+      <div class="title">Endless Kite</div>
+      <div class="patch">
+        <label>Name <input id="user" name="username" autocomplete="username" autocapitalize="off" spellcheck="false" required autofocus></label>
+        <label>Password <input id="pass" name="password" type="password" autocomplete="current-password" required></label>
+        <button id="go" type="submit">Ride in</button>
+        <div id="why" role="alert"></div>
+      </div>
+    </form>
+    <div id="loading">
+      <div class="title">Endless Kite</div>
+      <div class="strap"><div id="fill"></div></div>
+      <div id="status">Loading</div>
+    </div>
+    <div id="notice"></div>
+    <script>
+      var canvas = document.querySelector("#unity-canvas");
+      // right-click rides: the browser's own menu must never open over the field
+      canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+      function showBanner(msg, type) {
+        var notice = document.querySelector("#notice");
+        var div = document.createElement("div");
+        div.textContent = msg;
+        div.className = type == "error" ? "error" : "warning";
+        notice.appendChild(div);
+        if (type != "error") setTimeout(function () { notice.removeChild(div); }, 6000);
+      }
+
+      var gate = document.querySelector("#gate"), why = document.querySelector("#why"), go = document.querySelector("#go");
+      var fill = document.querySelector("#fill"), status = document.querySelector("#status");
+      var enc = new TextEncoder();
+      var seal = null;
+
+      function unb64(s) { return Uint8Array.from(atob(s), function (c) { return c.charCodeAt(0); }); }
+      function b64(bytes) { return btoa(String.fromCharCode.apply(null, bytes)); }
+      function progress(p, word) {
+        fill.style.transform = "scaleX(" + p + ")";
+        status.textContent = word + "  " + Math.round(100 * p) + "%";
+      }
+
+      async function getSeal() {
+        if (!seal) seal = await (await fetch("seal.json", { cache: "no-cache" })).json();
+        return seal;
+      }
+
+      // the key, drawn from the name and the password exactly as seal.mjs drew it
+      async function derive(user, pass) {
+        var base = await crypto.subtle.importKey("raw", enc.encode(user.trim() + "\n" + pass), "PBKDF2", false, ["deriveBits"]);
+        var bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: unb64(seal.salt), iterations: seal.iterations }, base, 256);
+        return new Uint8Array(bits);
+      }
+
+      async function unlock(raw) {
+        var key = await crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["decrypt"]);
+        // a wrong login fails here, on a few bytes, before anything big is fetched
+        await crypto.subtle.decrypt({ name: "AES-GCM", iv: unb64(seal.check.iv) }, key, unb64(seal.check.ct));
+        return key;
+      }
+
+      async function fetchAll(onBytes) {
+        var parts = {};
+        await Promise.all(Object.keys(seal.files).map(async function (part) {
+          var f = seal.files[part];
+          var res = await fetch("Build/" + f.file);
+          if (!res.ok) throw new Error(res.status + " for " + f.file);
+          var reader = res.body.getReader(), chunks = [], n = 0;
+          for (;;) {
+            var r = await reader.read();
+            if (r.done) break;
+            chunks.push(r.value);
+            n += r.value.length;
+            onBytes(r.value.length);
+          }
+          var all = new Uint8Array(n), at = 0;
+          chunks.forEach(function (c) { all.set(c, at); at += c.length; });
+          parts[part] = all;
+        }));
+        return parts;
+      }
+
+      async function ride(key) {
+        gate.style.display = "none";
+        document.querySelector("#loading").style.display = "flex";
+        var total = 0, got = 0;
+        Object.keys(seal.files).forEach(function (k) { total += seal.files[k].size; });
+        progress(0, "Loading");
+        var sealed = await fetchAll(function (n) { got += n; progress(0.75 * got / total, "Loading"); });
+        var urls = {};
+        for (var part in sealed) {
+          var plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: unb64(seal.files[part].iv) }, key, sealed[part]);
+          urls[part] = URL.createObjectURL(new Blob([plain], { type: "application/octet-stream" }));
+          delete sealed[part];
+        }
+        var config = {
+          arguments: [],
+          dataUrl: urls.data,
+          frameworkUrl: urls.framework,
+          codeUrl: urls.code,
+          streamingAssetsUrl: "StreamingAssets",
+          companyName: seal.product.companyName,
+          productName: seal.product.productName,
+          productVersion: seal.product.productVersion,
+          showBanner: showBanner,
+          // the opened files live only in this page: never kept in the browser's cache
+          cacheControl: function () { return "no-store"; },
+          // the save (PlayerPrefs) is written to the browser's storage as it changes
+          autoSyncPersistentDataPath: true,
+          // a high-density laptop screen renders at most 1.5 pixels per CSS pixel: the province is big
+          devicePixelRatio: Math.min(window.devicePixelRatio || 1, 1.5),
+        };
+        await new Promise(function (ok, fail) {
+          var script = document.createElement("script");
+          script.src = "Build/" + seal.loader;
+          script.onload = ok;
+          script.onerror = function () { fail(new Error("the loader did not load")); };
+          document.body.appendChild(script);
+        });
+        await createUnityInstance(canvas, config, function (p) { progress(0.75 + 0.25 * p, "Loading"); });
+        document.querySelector("#loading").style.display = "none";
+        canvas.focus();
+      }
+
+      function failed(e) {
+        status.textContent = "The game could not start: " + (e && e.message ? e.message : e);
+      }
+
+      gate.addEventListener("submit", async function (e) {
+        e.preventDefault();
+        why.textContent = "";
+        go.disabled = true;
+        go.textContent = "Checking";
+        try {
+          await getSeal();
+          var raw = await derive(document.querySelector("#user").value, document.querySelector("#pass").value);
+          var key;
+          try { key = await unlock(raw); }
+          catch (err) {
+            why.textContent = "That name and password do not open the gate.";
+            go.disabled = false;
+            go.textContent = "Ride in";
+            document.querySelector("#pass").select();
+            return;
+          }
+          // remembered for this tab only, so a reload does not ask again
+          try { sessionStorage.setItem("ek_gate_" + seal.salt, b64(raw)); } catch (err) {}
+          await ride(key);
+        } catch (err) { failed(err); }
+      });
+
+      // already let in this session: ride straight on
+      (async function () {
+        try {
+          await getSeal();
+          var kept = null;
+          try { kept = sessionStorage.getItem("ek_gate_" + seal.salt); } catch (err) {}
+          if (kept) await ride(await unlock(unb64(kept)));
+        } catch (err) {
+          if (document.querySelector("#loading").style.display == "flex") failed(err);
+        }
+      })();
+    </script>
+  </body>
+</html>

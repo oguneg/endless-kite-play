@@ -1,0 +1,31 @@
+{
+  "salt": "q5yT5jG8RcOXxlLLxBkYgw==",
+  "iterations": 600000,
+  "loader": "WebGL.loader.js",
+  "product": {
+    "companyName": "DefaultCompany",
+    "productName": "Endless Kite",
+    "productVersion": "0.1.0"
+  },
+  "check": {
+    "iv": "bITBwKg/8rmi7UtK",
+    "ct": "udV+QVTp0NWGTYIJG8R8lS2KS6XKO/mVAk77/w=="
+  },
+  "files": {
+    "data": {
+      "file": "data.e506e05cec.bin",
+      "iv": "eiTvqnrrunkwfjPz",
+      "size": 8003778
+    },
+    "framework": {
+      "file": "framework.11087148d5.bin",
+      "iv": "94QiGCUpohyx8deL",
+      "size": 75844
+    },
+    "code": {
+      "file": "code.f19cf6d1f9.bin",
+      "iv": "ap4xZ7RfPeG324VT",
+      "size": 7971694
+    }
+  }
+}
